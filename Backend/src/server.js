@@ -18,23 +18,49 @@ import {
 
 dotenv.config();
 
-const app =
-  express();
+const app = express();
 
-const PORT =
-  process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000;
+
+/* CORS */
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+  "http://localhost:3000"
+];
+
+if (process.env.CLIENT_URL) {
+  allowedOrigins.push(
+    process.env.CLIENT_URL
+  );
+}
 
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "http://localhost:5175",
-      "http://localhost:3000"
-    ],
+    origin: (origin, callback) => {
+      // Allow requests without an Origin header
+      // such as server-side tools/Postman.
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(
+        new Error(
+          `CORS blocked origin: ${origin}`
+        )
+      );
+    },
     credentials: true
   })
 );
+
+/* BODY PARSERS */
 
 app.use(
   express.json({
@@ -51,17 +77,14 @@ app.use(
 
 /* HEALTH CHECK */
 
-app.get(
-  "/",
-  (req, res) => {
-    res.json({
-      success: true,
-      message:
-        "Ashraya AI Emergency Backend is running.",
-      version: "1.0.0"
-    });
-  }
-);
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message:
+      "Ashraya AI Emergency Backend is running.",
+    version: "1.0.0"
+  });
+});
 
 /* ROUTES */
 
@@ -90,7 +113,10 @@ app.use(
   hospitalRoutes
 );
 
-app.use("/api/contacts", contactRoutes);
+app.use(
+  "/api/contacts",
+  contactRoutes
+);
 
 /* ERROR HANDLERS */
 
@@ -101,16 +127,26 @@ app.use(errorHandler);
 /* DATABASE + SERVER */
 
 async function startServer() {
-  await connectDB();
+  try {
+    await connectDB();
 
-  app.listen(
-    PORT,
-    () => {
-      console.log(
-        `Ashraya server running on port ${PORT}`
-      );
-    }
-  );
+    app.listen(
+      PORT,
+      "0.0.0.0",
+      () => {
+        console.log(
+          `Ashraya server running on port ${PORT}`
+        );
+      }
+    );
+  } catch (error) {
+    console.error(
+      "Server startup failed:",
+      error
+    );
+
+    process.exit(1);
+  }
 }
 
 startServer();
