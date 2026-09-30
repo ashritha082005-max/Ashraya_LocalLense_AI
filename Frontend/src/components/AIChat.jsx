@@ -11,6 +11,21 @@ export default function AIChat() {
   ]);
   const [loading, setLoading] = useState(false);
 
+  // Send AI response through WhatsApp
+  const sendToWhatsApp = (text) => {
+    const whatsappMessage =
+      `🚨 ASHRAYA AI EMERGENCY ALERT\n\n` +
+      `${text}\n\n` +
+      `Please provide help immediately if this is an emergency.`;
+
+    const encodedMessage = encodeURIComponent(whatsappMessage);
+
+    window.open(
+      `https://wa.me/?text=${encodedMessage}`,
+      "_blank"
+    );
+  };
+
   const sendMessage = async () => {
     if (!message.trim() || loading) return;
 
@@ -35,15 +50,17 @@ export default function AIChat() {
         }
       });
 
+      const aiResponse =
+        data.message ||
+        data.response ||
+        data.answer ||
+        "I received your emergency, but I could not generate a response.";
+
       setMessages((prev) => [
         ...prev,
         {
           role: "ai",
-          text:
-            data.message ||
-            data.response ||
-            data.answer ||
-            "I received your emergency, but I could not generate a response."
+          text: aiResponse
         }
       ]);
     } catch (error) {
@@ -64,13 +81,25 @@ export default function AIChat() {
 
   return (
     <div className="ai-chat">
+
       <div className="chat-messages">
+
         {messages.map((item, index) => (
           <div
             key={index}
             className={`chat-message ${item.role}`}
           >
-            {item.text}
+            <div>{item.text}</div>
+
+            {/* WhatsApp button only for AI responses */}
+            {item.role === "ai" && index !== 0 && (
+              <button
+                onClick={() => sendToWhatsApp(item.text)}
+                className="whatsapp-button"
+              >
+                📱 Send via WhatsApp
+              </button>
+            )}
           </div>
         ))}
 
@@ -79,9 +108,11 @@ export default function AIChat() {
             Ashraya AI is thinking...
           </div>
         )}
+
       </div>
 
       <div className="chat-input">
+
         <input
           type="text"
           placeholder="Describe your emergency..."
@@ -94,10 +125,15 @@ export default function AIChat() {
           }}
         />
 
-        <button onClick={sendMessage} disabled={loading}>
+        <button
+          onClick={sendMessage}
+          disabled={loading}
+        >
           {loading ? "..." : "Send"}
         </button>
+
       </div>
+
     </div>
   );
 }
