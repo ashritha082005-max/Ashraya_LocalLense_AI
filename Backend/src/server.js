@@ -42,21 +42,24 @@ app.use(
         return callback(null, true);
       }
 
-      // Allow approved origins
+      console.log("🌐 Request Origin:", origin);
+
+      // Allow GitHub Pages
+      if (
+        origin ===
+        "https://ashritha082005-max.github.io"
+      ) {
+        return callback(null, true);
+      }
+
+      // Allow local development
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
-      console.log(
-        "❌ CORS blocked origin:",
-        origin
-      );
+      console.log("❌ CORS blocked:", origin);
 
-      return callback(
-        new Error(
-          `CORS blocked origin: ${origin}`
-        )
-      );
+      return callback(null, false);
     },
 
     credentials: true
@@ -163,4 +166,3 @@ async function startServer() {
 }
 
 startServer();
-
