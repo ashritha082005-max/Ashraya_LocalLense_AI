@@ -22,7 +22,9 @@ const app = express();
 
 const PORT = process.env.PORT || 5000;
 
-/* CORS */
+/* =========================
+   CORS
+========================= */
 
 const allowedOrigins = [
   "http://localhost:5173",
@@ -32,24 +34,23 @@ const allowedOrigins = [
   "https://ashritha082005-max.github.io"
 ];
 
-if (process.env.CLIENT_URL) {
-  allowedOrigins.push(
-    process.env.CLIENT_URL
-  );
-}
-
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests without an Origin header
-      // such as server-side tools/Postman.
       if (!origin) {
         return callback(null, true);
       }
 
+      // Allow approved origins
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
+
+      console.log(
+        "❌ CORS blocked origin:",
+        origin
+      );
 
       return callback(
         new Error(
@@ -57,11 +58,14 @@ app.use(
         )
       );
     },
+
     credentials: true
   })
 );
 
-/* BODY PARSERS */
+/* =========================
+   BODY PARSERS
+========================= */
 
 app.use(
   express.json({
@@ -76,7 +80,9 @@ app.use(
   })
 );
 
-/* HEALTH CHECK */
+/* =========================
+   HEALTH CHECK
+========================= */
 
 app.get("/", (req, res) => {
   res.json({
@@ -87,7 +93,9 @@ app.get("/", (req, res) => {
   });
 });
 
-/* ROUTES */
+/* =========================
+   ROUTES
+========================= */
 
 app.use(
   "/api/auth",
@@ -119,13 +127,17 @@ app.use(
   contactRoutes
 );
 
-/* ERROR HANDLERS */
+/* =========================
+   ERROR HANDLERS
+========================= */
 
 app.use(notFound);
 
 app.use(errorHandler);
 
-/* DATABASE + SERVER */
+/* =========================
+   DATABASE + SERVER
+========================= */
 
 async function startServer() {
   try {
@@ -151,3 +163,4 @@ async function startServer() {
 }
 
 startServer();
+
