@@ -20,7 +20,7 @@ dotenv.config();
 
 const app = express();
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8081;
 
 /* =========================
    CORS
@@ -146,10 +146,7 @@ async function startServer() {
   try {
     await connectDB();
 
-    app.listen(
-      PORT,
-      "0.0.0.0",
-      () => {
+   app.listen(PORT, () => {
         console.log(
           `Ashraya server running on port ${PORT}`
         );

@@ -17,10 +17,12 @@ export async function connectDB() {
       await mongoose.connect(
         mongoUri,
         {
-          family: 4,
-          serverSelectionTimeoutMS: 10000,
-          connectTimeoutMS: 10000,
-          maxPoolSize: 10
+          
+    family: 4,
+    serverSelectionTimeoutMS: 30000,
+    connectTimeoutMS: 30000,
+    socketTimeoutMS: 30000,
+    maxPoolSize: 10
         }
       );
 
