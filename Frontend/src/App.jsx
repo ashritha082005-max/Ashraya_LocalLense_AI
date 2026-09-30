@@ -16,7 +16,11 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
 
+import { useAuth } from "./context/AuthContext";
+
 function App() {
+  const { user } = useAuth();
+
   return (
     <div className="app-shell">
       <Sidebar />
@@ -31,9 +35,45 @@ function App() {
                 PUBLIC ROUTES
             ========================= */}
 
-            <Route path="/login" element={<Login />} />
+            <Route
+              path="/login"
+              element={
+                user ? (
+                  <Navigate to="/" replace />
+                ) : (
+                  <Login />
+                )
+              }
+            />
 
-            <Route path="/register" element={<Register />} />
+            <Route
+              path="/register"
+              element={
+                user ? (
+                  <Navigate to="/" replace />
+                ) : (
+                  <Register />
+                )
+              }
+            />
+
+
+            {/* =========================
+                HOME ROUTE
+                Logged out → Login
+                Logged in → Home
+            ========================= */}
+
+            <Route
+              path="/"
+              element={
+                user ? (
+                  <Home />
+                ) : (
+                  <Navigate to="/login" replace />
+                )
+              }
+            />
 
 
             {/* =========================
@@ -41,8 +81,6 @@ function App() {
             ========================= */}
 
             <Route element={<ProtectedRoute />}>
-
-              <Route path="/" element={<Home />} />
 
               <Route
                 path="/emergency"
