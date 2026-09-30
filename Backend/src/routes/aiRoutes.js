@@ -3,6 +3,7 @@ import express from "express";
 const router = express.Router();
 
 router.post("/chat", (req, res) => {
+  console.log("🤖 AI CHAT REQUEST:", req.body);
   const { message } = req.body;
 
   if (!message) {
