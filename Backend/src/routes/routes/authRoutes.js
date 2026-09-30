@@ -2,20 +2,29 @@ import express from "express";
 
 import {
   register,
-  login
-} from "../../config/controllers/authController.js";
+  login,
+  getProfile,
+  updateProfile
+} from "../controllers/authController.js";
 
-const router =
-  express.Router();
+import { protect } from "../middleware/authMiddleware.js";
 
-router.post(
-  "/register",
-  register
+const router = express.Router();
+
+router.post("/register", register);
+
+router.post("/login", login);
+
+router.get(
+  "/profile",
+  protect,
+  getProfile
 );
 
-router.post(
-  "/login",
-  login
+router.put(
+  "/profile",
+  protect,
+  updateProfile
 );
 
 export default router;
