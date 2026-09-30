@@ -45,6 +45,10 @@ jobs:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
         run: npm run build
 
+      # GitHub Pages SPA fallback for React Router
+      - name: Add SPA fallback
+        run: cp Frontend/dist/index.html Frontend/dist/404.html
+
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5
 

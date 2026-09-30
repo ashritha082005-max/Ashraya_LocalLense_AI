@@ -4,14 +4,20 @@ import {
   MapPin,
   ShieldAlert,
   CheckCircle,
-  MessageCircle
+  MessageCircle,
+  UserPlus,
+  Trash2
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { useEmergency } from "../hooks/useEmergency";
-import { getEmergencyContacts } from "../services/contactService.js";
+import {
+  getEmergencyContacts,
+  addEmergencyContact,
+  deleteEmergencyContact
+} from "../services/contactService.js";
 
 export default function Emergency() {
   const [params] = useSearchParams();
@@ -38,35 +44,158 @@ export default function Emergency() {
   const [sosStatus, setSosStatus] =
     useState("");
 
-  // Load saved emergency contacts
+  // Contact form
+  const [contactName, setContactName] =
+    useState("");
+
+  const [contactPhone, setContactPhone] =
+    useState("");
+
+  const [contactRelationship, setContactRelationship] =
+    useState("");
+
+  const [savingContact, setSavingContact] =
+    useState(false);
+
+  const [deletingContact, setDeletingContact] =
+    useState(null);
+
+  // Load trusted contacts
+  const loadContacts = async () => {
+    try {
+      setContactsLoading(true);
+
+      const response =
+        await getEmergencyContacts();
+
+      setContacts(response?.data || []);
+    } catch (error) {
+      console.error(
+        "Unable to load emergency contacts:",
+        error
+      );
+
+      setContacts([]);
+    } finally {
+      setContactsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadContacts = async () => {
-      try {
-        setContactsLoading(true);
-
-        const response =
-          await getEmergencyContacts();
-
-        setContacts(
-          response?.data || []
-        );
-      } catch (error) {
-        console.error(
-          "Unable to load emergency contacts:",
-          error
-        );
-
-        setContacts([]);
-      } finally {
-        setContactsLoading(false);
-      }
-    };
-
     loadContacts();
   }, []);
 
+  // Add trusted contact
+  const handleAddContact = async () => {
+    if (!contactName.trim()) {
+      alert("Please enter contact name.");
+      return;
+    }
+
+    if (!contactPhone.trim()) {
+      alert("Please enter phone number.");
+      return;
+    }
+
+    try {
+      setSavingContact(true);
+
+      const response =
+        await addEmergencyContact({
+          name: contactName.trim(),
+          phone: contactPhone.trim(),
+          relationship:
+            contactRelationship.trim()
+        });
+
+      if (response?.success) {
+        setContactName("");
+        setContactPhone("");
+        setContactRelationship("");
+
+        await loadContacts();
+
+        alert(
+          "✅ Trusted contact added successfully."
+        );
+      } else {
+        alert(
+          response?.message ||
+          "Unable to add contact."
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Add contact error:",
+        error
+      );
+
+      alert(
+        error?.response?.data?.message ||
+        "Unable to save trusted contact."
+      );
+    } finally {
+      setSavingContact(false);
+    }
+  };
+
+  // Delete trusted contact
+  const handleDeleteContact = async (
+    contactId
+  ) => {
+    if (!contactId) return;
+
+    const confirmed =
+      window.confirm(
+        "Are you sure you want to delete this trusted contact?"
+      );
+
+    if (!confirmed) return;
+
+    try {
+      setDeletingContact(contactId);
+
+      const response =
+        await deleteEmergencyContact(
+          contactId
+        );
+
+      if (response?.success) {
+        setContacts((prev) =>
+          prev.filter(
+            (contact) =>
+              contact._id !== contactId
+          )
+        );
+
+        alert(
+          "✅ Trusted contact deleted."
+        );
+      } else {
+        alert(
+          response?.message ||
+          "Unable to delete contact."
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Delete contact error:",
+        error
+      );
+
+      alert(
+        error?.response?.data?.message ||
+        "Unable to delete trusted contact."
+      );
+    } finally {
+      setDeletingContact(null);
+    }
+  };
+
   // Convert phone number to WhatsApp format
-  const normalizeWhatsAppPhone = (phone) => {
+  const normalizeWhatsAppPhone = (
+    phone
+  ) => {
     let number = String(
       phone || ""
     ).replace(/\D/g, "");
@@ -117,110 +246,83 @@ export default function Emergency() {
 
   // 🚨 ACTIVATE EMERGENCY
   const handleEmergency = async () => {
+    if (loading || activated) {
+      return;
+    }
+
     setSosStatus("");
 
-    /*
-      Open WhatsApp tabs immediately from the user's click.
-      This helps reduce popup blocking.
-    */
-    const whatsappWindows = contacts.map(
-      (contact) => {
-        const popup = window.open(
-          "about:blank",
-          "_blank"
+    try {
+      // First record the emergency
+      const result =
+        await triggerEmergency(type);
+
+      // Emergency failed
+      if (!result?.success) {
+        return;
+      }
+
+      setActivated(true);
+
+      // Get location
+      const emergencyData =
+        result?.data || {};
+
+      const latitude =
+        emergencyData.latitude ??
+        emergencyLocation?.latitude ??
+        null;
+
+      const longitude =
+        emergencyData.longitude ??
+        emergencyLocation?.longitude ??
+        null;
+
+      // No trusted contacts
+      if (contacts.length === 0) {
+        setSosStatus(
+          "Emergency activated successfully. No trusted contacts are saved."
         );
 
-        return {
-          contact,
-          popup
-        };
+        return;
       }
-    );
 
-    // Activate emergency
-    const result =
-      await triggerEmergency(type);
-
-    // Emergency failed
-    if (!result?.success) {
-      whatsappWindows.forEach(
-        ({ popup }) => {
-          if (
-            popup &&
-            !popup.closed
-          ) {
-            popup.close();
-          }
-        }
-      );
-
-      return;
-    }
-
-    setActivated(true);
-
-    /*
-      First use location returned by backend.
-      If unavailable, use location from useEmergency.
-    */
-    const emergencyData =
-      result?.data || {};
-
-    const latitude =
-      emergencyData.latitude ??
-      emergencyLocation?.latitude ??
-      null;
-
-    const longitude =
-      emergencyData.longitude ??
-      emergencyLocation?.longitude ??
-      null;
-
-    // No trusted contacts
-    if (contacts.length === 0) {
-      setSosStatus(
-        "Emergency activated successfully. No trusted contacts are saved."
-      );
-
-      return;
-    }
-
-    let openedCount = 0;
-    let blockedCount = 0;
-
-    // Redirect each opened tab to WhatsApp
-    whatsappWindows.forEach(
-      ({ contact, popup }) => {
-        if (
-          !popup ||
-          popup.closed
-        ) {
-          blockedCount++;
-          return;
-        }
-
-        const whatsappUrl =
+      // Create WhatsApp URLs
+      const whatsappUrls =
+        contacts.map((contact) =>
           createWhatsAppUrl({
             phone: contact.phone,
             latitude,
             longitude
-          });
-
-        popup.location.replace(
-          whatsappUrl
+          })
         );
 
-        openedCount++;
+      /*
+        Open the first WhatsApp chat directly.
+        This avoids creating about:blank popup windows.
+      */
+      if (whatsappUrls.length > 0) {
+        window.location.href =
+          whatsappUrls[0];
       }
-    );
 
-    if (blockedCount > 0) {
-      setSosStatus(
-        `Emergency activated. WhatsApp SOS prepared for ${openedCount} contact(s). ${blockedCount} popup(s) were blocked.`
+      if (whatsappUrls.length === 1) {
+        setSosStatus(
+          "Emergency activated. WhatsApp SOS is ready. Please press Send in WhatsApp."
+        );
+      } else {
+        setSosStatus(
+          `Emergency activated. WhatsApp SOS prepared for ${whatsappUrls.length} contacts. Please send the message in WhatsApp.`
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Emergency activation error:",
+        error
       );
-    } else {
+
       setSosStatus(
-        `Emergency activated. WhatsApp SOS prepared for ${openedCount} contact(s). Please press Send in each WhatsApp chat.`
+        "Emergency was recorded, but WhatsApp could not be opened."
       );
     }
   };
@@ -246,7 +348,6 @@ export default function Emergency() {
         const mapsLink =
           `https://www.google.com/maps?q=${latitude},${longitude}`;
 
-        // Native share
         if (navigator.share) {
           try {
             await navigator.share({
@@ -265,7 +366,6 @@ export default function Emergency() {
           }
         }
 
-        // Copy location link
         try {
           await navigator.clipboard.writeText(
             mapsLink
@@ -364,6 +464,7 @@ export default function Emergency() {
 
         {/* MAIN EMERGENCY CARD */}
         <div className="grid-8">
+
           <div
             className="card"
             style={{
@@ -427,6 +528,249 @@ export default function Emergency() {
                 : "No trusted contacts saved"}
             </div>
 
+            {/* TRUSTED CONTACTS */}
+            <div
+              style={{
+                marginTop: 25,
+                marginBottom: 25,
+                padding: 20,
+                borderRadius: 15,
+                background:
+                  "rgba(255,255,255,0.03)",
+                border:
+                  "1px solid rgba(255,255,255,0.08)",
+                textAlign: "left"
+              }}
+            >
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 8
+                }}
+              >
+                <UserPlus size={20} />
+
+                <h3
+                  style={{
+                    margin: 0
+                  }}
+                >
+                  Trusted Emergency Contacts
+                </h3>
+              </div>
+
+              <p
+                style={{
+                  color: "var(--muted)",
+                  fontSize: 13,
+                  lineHeight: 1.6
+                }}
+              >
+                Add a family member or trusted person.
+                Ashraya can prepare an SOS WhatsApp
+                message for them when you activate an
+                emergency.
+              </p>
+
+              {/* NAME */}
+              <input
+                type="text"
+                placeholder="Contact name"
+                value={contactName}
+                onChange={(e) =>
+                  setContactName(
+                    e.target.value
+                  )
+                }
+                style={{
+                  width: "100%",
+                  padding: 12,
+                  marginBottom: 10,
+                  borderRadius: 8,
+                  border:
+                    "1px solid rgba(255,255,255,0.1)",
+                  background:
+                    "rgba(255,255,255,0.05)",
+                  color: "inherit",
+                  boxSizing: "border-box"
+                }}
+              />
+
+              {/* PHONE */}
+              <input
+                type="tel"
+                placeholder="Phone number"
+                value={contactPhone}
+                onChange={(e) =>
+                  setContactPhone(
+                    e.target.value
+                  )
+                }
+                style={{
+                  width: "100%",
+                  padding: 12,
+                  marginBottom: 10,
+                  borderRadius: 8,
+                  border:
+                    "1px solid rgba(255,255,255,0.1)",
+                  background:
+                    "rgba(255,255,255,0.05)",
+                  color: "inherit",
+                  boxSizing: "border-box"
+                }}
+              />
+
+              {/* RELATIONSHIP */}
+              <input
+                type="text"
+                placeholder="Relationship (e.g. Mother)"
+                value={contactRelationship}
+                onChange={(e) =>
+                  setContactRelationship(
+                    e.target.value
+                  )
+                }
+                style={{
+                  width: "100%",
+                  padding: 12,
+                  marginBottom: 12,
+                  borderRadius: 8,
+                  border:
+                    "1px solid rgba(255,255,255,0.1)",
+                  background:
+                    "rgba(255,255,255,0.05)",
+                  color: "inherit",
+                  boxSizing: "border-box"
+                }}
+              />
+
+              {/* ADD CONTACT */}
+              <button
+                type="button"
+                className="secondary-btn full-btn"
+                onClick={
+                  handleAddContact
+                }
+                disabled={
+                  savingContact
+                }
+              >
+                <UserPlus size={17} />
+
+                {savingContact
+                  ? "Saving..."
+                  : "Add Trusted Contact"}
+              </button>
+
+              {/* SAVED CONTACTS */}
+              {contacts.length > 0 && (
+                <div
+                  style={{
+                    marginTop: 25
+                  }}
+                >
+                  <h4>
+                    Saved Contacts
+                  </h4>
+
+                  {contacts.map(
+                    (contact) => (
+                      <div
+                        key={
+                          contact._id
+                        }
+                        style={{
+                          display: "flex",
+                          alignItems:
+                            "center",
+                          justifyContent:
+                            "space-between",
+                          gap: 12,
+                          padding: 14,
+                          marginBottom: 10,
+                          borderRadius: 10,
+                          background:
+                            "rgba(39,217,154,0.06)",
+                          border:
+                            "1px solid rgba(39,217,154,0.1)"
+                        }}
+                      >
+
+                        <div>
+                          <strong>
+                            👤{" "}
+                            {contact.name}
+                          </strong>
+
+                          <div
+                            style={{
+                              fontSize: 13,
+                              color:
+                                "var(--muted)",
+                              marginTop: 4
+                            }}
+                          >
+                            📱{" "}
+                            {contact.phone}
+                          </div>
+
+                          {contact.relationship && (
+                            <div
+                              style={{
+                                fontSize: 13,
+                                color:
+                                  "var(--muted)"
+                              }}
+                            >
+                              ❤️{" "}
+                              {
+                                contact.relationship
+                              }
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDeleteContact(
+                              contact._id
+                            )
+                          }
+                          disabled={
+                            deletingContact ===
+                            contact._id
+                          }
+                          style={{
+                            border: "none",
+                            background:
+                              "rgba(255,77,103,0.1)",
+                            color:
+                              "#ff5c73",
+                            padding:
+                              "8px 10px",
+                            borderRadius: 8,
+                            cursor:
+                              "pointer"
+                          }}
+                          title="Delete contact"
+                        >
+                          <Trash2
+                            size={17}
+                          />
+                        </button>
+
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+
+            </div>
+
             {/* ACTIVATE BUTTON */}
             <button
               className="danger-btn"
@@ -434,7 +778,9 @@ export default function Emergency() {
                 padding: "16px 30px",
                 fontSize: 16
               }}
-              onClick={handleEmergency}
+              onClick={
+                handleEmergency
+              }
               disabled={
                 loading ||
                 activated ||
@@ -443,7 +789,9 @@ export default function Emergency() {
             >
               {activated ? (
                 <>
-                  <CheckCircle size={20} />
+                  <CheckCircle
+                    size={20}
+                  />
                   EMERGENCY ACTIVATED
                 </>
               ) : (
@@ -571,14 +919,19 @@ export default function Emergency() {
 
         {/* IMMEDIATE ACTIONS */}
         <div className="grid-4">
+
           <div className="card">
 
             <div className="card-title">
+
               <div className="icon-box">
-                <ShieldAlert size={20} />
+                <ShieldAlert
+                  size={20}
+                />
               </div>
 
               Immediate Actions
+
             </div>
 
             <div
@@ -623,6 +976,7 @@ export default function Emergency() {
 
             </div>
           </div>
+
         </div>
 
       </div>

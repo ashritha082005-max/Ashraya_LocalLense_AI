@@ -10,7 +10,7 @@ import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename="/Ashraya_LocalLense_AI">
       <AuthProvider>
         <EmergencyProvider>
           <App />
